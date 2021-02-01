@@ -1,10 +1,6 @@
 const Users = require('./../models/usersModel');
 const bcrypt = require('bcrypt');
 var jwt = require('jsonwebtoken');
-var request = require('request-promise');
-var uniqid = require('uniqid');
-var mqtt = require('mqtt');
-
 
 
 exports.login = async (req, res) => {
@@ -93,3 +89,19 @@ exports.signup = async (req, res) => {
         res.status(404).send(error);
     }
 }
+
+// route middleware to ensure user is logged in
+module.exports.isLoggedIn = async (req, res, next) => {   //To verify an incoming token from client
+    try {
+        //console.log(req.cookies.token);
+        jwt.verify(req.cookies.token, 'test secret');
+        return next();
+    }
+    catch (err) {
+        console.log(err.message);
+        return res.status(401).render('login', {  //401 Unauthorized Accesss
+            message: 'Token expired or tampered'
+        });
+    }
+}
+

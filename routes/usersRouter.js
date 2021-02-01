@@ -27,6 +27,27 @@ router.get('/register', ((req, res) => {
     });
 }));
 
+router.get('/logout', ((req, res) => {
+    let id = req.cookies.id;
+    client.unsubscribe([id + '/nodemcu', id + '/red_led', id + '/green_led', id + '/servo'], function (err) {     // id/#
+        if (err) {
+            console.log("Mqtt err: " + err);
+        } else {
+            console.log("UNSUBSCRIBED EVERY TOPIC of browser");
+            client.publish(id + '/turnoff_client', 'ok');
+        }
+    });
+    client1.unsubscribe([id + '/nodemcu', id + '/red_led', id + '/green_led', id + '/servo'], function (err) {     // id/#
+        if (err) {
+            console.log("Mqtt err: " + err);
+        } else {
+            console.log("UNSUBSCRIBED EVERY TOPIC of nodemcu");
+            res.clearCookie('token');
+            res.redirect('/login');
+        }
+    });
+}));
+
 router.post('/register', usersController.signup);
 
 
@@ -40,7 +61,7 @@ client1.on('connect', function () {
     console.log("Server connected to the websocket Mqtt for browser");
 });
 
-router.get('/dashboard/:id', (async (req, res) => {
+router.get('/dashboard/:id', usersController.isLoggedIn, (async (req, res, next) => {
     const id = req.params.id;
     //console.log(req.sessions.token);
     var users = await Users.findOne({ where: { id: id } })
@@ -104,10 +125,6 @@ router.get('/dashboard/:id', (async (req, res) => {
                     if (IsJSONString(msg.toString()) == true) {
                         obj = JSON.parse(msg.toString());
                     }
-                    console.log(obj)
-                    console.log('topic', topic)
-                    console.log('msg', msg)
-
 
                     await Nodemcu.create({
                         type: 'dynamic',
@@ -142,16 +159,6 @@ router.get('/dashboard/:id', (async (req, res) => {
                         }).catch(err => {
                             console.log(err.stack);
                         });
-
-
-
-                    // influx.query(`
-                    //     select last(ldr),time from nodemcu
-                    //     WHERE id='${id}'`).then(result => {
-                    //     client.publish(id + '/nodemcu_time', new Date(result[0].time).toLocaleString(), { qos: 2 });
-                    // }).catch(err => {
-                    //     console.log(err.stack);
-                    // });
                 }
                 if (topic == id + '/green_led') {
 
@@ -165,38 +172,11 @@ router.get('/dashboard/:id', (async (req, res) => {
 
                         await Nodemcu.findOne({ where: { id: id }, attributes: ['id', 'createdAt'], order: [['green_led', 'DESC']] })
                             .then(NodemcuData => {
-                                console.log(NodemcuData)
 
-                                console.log(NodemcuData.dataValues.createdAt)
-                                console.log(id + '/red_time')
-                                //client1.publish(id + '/red_time', 'publicdddd')
                                 client.publish(id + '/green_time', new Date(NodemcuData.dataValues.createdAt).toLocaleString(), { qos: 2 });
                             })
                     });
                     client.publish('green_time', new Date().toLocaleString());
-
-                    // influx.writePoints([
-                    //     {
-                    //         measurement: 'nodemcu',
-                    //         tags: {
-                    //             id: id,
-                    //             type: 'static'
-                    //         },
-                    //         fields: {
-                    //             green_led: msg.toString()
-                    //         },
-                    //     }
-                    // ]).then(() => {
-                    //     console.log('GREEN: ' + msg.toString());
-                    //     influx.query(`
-                    //         select last(green_led),time from nodemcu
-                    //         WHERE id='${id}'`).then(result => {
-                    //         client.publish(id + '/green_time', new Date(result[0].time).toLocaleString(), { qos: 2 });
-                    //     }).catch(err => {
-                    //         console.log(err.stack);
-                    //     });
-                    //     //client.publish('green_time',new Date().toLocaleString());   can be used with other DB
-                    // })
                 }
                 else if (topic == id + '/red_led') {
 
@@ -211,20 +191,9 @@ router.get('/dashboard/:id', (async (req, res) => {
 
                         await Nodemcu.findOne({ where: { id: id }, attributes: ['id', 'createdAt'], order: [['red_led', 'DESC']] })
                             .then(NodemcuData => {
-                                console.log(NodemcuData)
 
-                                console.log(NodemcuData.dataValues.createdAt)
-                                console.log(id + '/red_time')
-                                //client1.publish(id + '/red_time', 'publicdddd')
                                 client.publish(id + '/red_time', new Date(NodemcuData.dataValues.createdAt).toLocaleString(), { qos: 2 });
                             })
-                        // influx.query(`
-                        //     select last(red_led),time from nodemcu
-                        //     WHERE id='${id}'`).then(result => {
-                        //     client.publish(id + '/red_time', new Date(result[0].time).toLocaleString(), { qos: 2 });
-                        // }).catch(err => {
-                        //     console.log(err.stack);
-                        // });
                     })
                 }
                 if (topic == id + '/servo') {
@@ -235,39 +204,10 @@ router.get('/dashboard/:id', (async (req, res) => {
                     }).then(async (data) => {
                         await Nodemcu.findOne({ where: { id: id }, attributes: ['id', 'createdAt'], order: [['servo', 'DESC']] })
                             .then(NodemcuData => {
-                                console.log(NodemcuData)
-
-                                console.log(NodemcuData.dataValues.createdAt)
-                                console.log(id + '/servo_time')
-                                //client1.publish(id + '/red_time', 'publicdddd')
                                 client.publish(id + '/servo_time', new Date(NodemcuData.dataValues.createdAt).toLocaleString(), { qos: 2 });
                             })
                     })
 
-
-
-
-                    // influx.writePoints([
-                    //     {
-                    //         measurement: 'nodemcu',
-                    //         tags: {
-                    //             id: id,
-                    //             type: 'static'
-                    //         },
-                    //         fields: {
-                    //             servo: msg.toString()
-                    //         },
-                    //     }
-                    // ]).then(() => {
-                    //     console.log('servo: ' + msg.toString());
-                    //     influx.query(`
-                    //         select last(servo),time from nodemcu
-                    //         WHERE id='${id}'`).then(result => {
-                    //         client.publish(id + '/servo_time', new Date(result[0].time).toLocaleString(), { qos: 2 });
-                    //     }).catch(err => {
-                    //         console.log(err.stack);
-                    //     });
-                    // })
                 }
 
             });
@@ -283,7 +223,6 @@ router.get('/dashboard/:id', (async (req, res) => {
             console.log(err.stack);
         });
 }))
-
 
 
 
